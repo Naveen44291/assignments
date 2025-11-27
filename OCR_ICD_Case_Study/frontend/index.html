@@ -1,0 +1,58 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pharma ICD OCR Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #page-container { position: relative; display: inline-block; border: 1px solid #ccc; }
+    #page-image { display: block; max-width: 600px; }
+    #overlay {
+      position: absolute;
+      left: 0;
+      top: 0;
+      pointer-events: none;
+    }
+    #log {
+      white-space: pre-wrap;
+      border: 1px solid #ddd;
+      padding: 8px;
+      max-width: 600px;
+      max-height: 250px;
+      overflow: auto;
+      margin-top: 10px;
+      font-size: 12px;
+      background: #fafafa;
+    }
+    button { margin-right: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Pharma ICD OCR Demo (LangChain + Azure OCR + OpenAI + pgvector)</h2>
+  <p>
+    Workflow:<br/>
+    1. Upload an image (prescription / discharge summary).<br/>
+    2. Backend runs OCR (mock or Azure).<br/>
+    3. LLM extracts ICD codes + supporting sentences.<br/>
+    4. LangChain + FAISS/pgvector ground those sentences to page + bounding box.<br/>
+    5. Grey boxes = all OCR lines, Red boxes = ICD supporting lines.
+  </p>
+
+  <input type="file" id="fileInput" />
+  <br/>
+  <button onclick="uploadFile()">Upload & OCR</button>
+  <button onclick="extractICD()">Extract ICDs & Highlight</button>
+
+  <h3>Page Preview</h3>
+  <div id="page-container">
+    <img id="page-image" src="" alt="Page preview" />
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <h3>Log</h3>
+  <div id="log"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

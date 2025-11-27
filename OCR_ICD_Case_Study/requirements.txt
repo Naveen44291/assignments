@@ -1,0 +1,13 @@
+
+fastapi
+uvicorn
+pydantic
+python-multipart
+pillow
+requests
+langchain
+langchain-openai
+langchain-community
+faiss-cpu
+openai
+psycopg2-binary
