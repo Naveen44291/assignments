@@ -12,17 +12,17 @@ except ImportError:
 
 
 def extract_icd_with_llm_mock(doc_text: str) -> List[ICDItem]:
-    """Mock ICD extraction that matches our mock OCR content."""
+    """Mock ICD extraction matching your test PDF."""
     return [
         ICDItem(
             icd_code="E11.9",
             icd_description="Type 2 diabetes mellitus without complications",
-            supporting_sentence="The patient has Type 2 Diabetes Mellitus without complications.",
+            supporting_sentence="Diagnosis: Type 2 Diabetes Mellitus",
         ),
         ICDItem(
             icd_code="I10",
             icd_description="Essential (primary) hypertension",
-            supporting_sentence="Hypertension is also noted with controlled blood pressure.",
+            supporting_sentence="Diagnosis: Hypertension",
         ),
     ]
 

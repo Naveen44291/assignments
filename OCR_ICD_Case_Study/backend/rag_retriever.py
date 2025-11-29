@@ -1,63 +1,61 @@
+# rag_retriever.py
+# ---------------------------------------------------------
+# MOCK retriever for demo without OpenAI embeddings,
+# without FAISS, and without PGVector.
+# ---------------------------------------------------------
 
 from typing import List
 
-from langchain_core.documents import Document
-from langchain_community.vectorstores import FAISS
-from langchain_community.vectorstores.pgvector import PGVector
-from langchain_openai import OpenAIEmbeddings
-from langchain_community.embeddings import FakeEmbeddings
-
 from .schemas import OCRChunk
-from .config import OPENAI_API_KEY, SUPABASE_URL, USE_PG_VECTOR
 
 
 def build_retriever(chunks: List[OCRChunk]):
-    """Build a LangChain retriever over OCR chunks.
-
-    - If USE_PG_VECTOR=true and SUPABASE_URL is set with pgvector enabled,
-      we use PGVector as the backing store (Supabase/Postgres).
-    - Otherwise, we fall back to in-memory FAISS.
     """
-    docs = [
-        Document(
-            page_content=c.text,
-            metadata={
+    Very simple keyword-based retriever.
+    Compatible with LangChain's retriever interface
+    by implementing both:
+        - get_relevant_documents(query)
+        - invoke(query)
+
+    No OpenAI, no embeddings, no FAISS, no PGVector.
+    Works fully offline.
+    """
+
+    entries = [
+        {
+            "text": c.text,
+            "metadata": {
                 "doc_id": c.doc_id,
                 "doc_name": c.doc_name,
                 "page": c.page,
                 "bbox": c.bbox,
             },
-        )
+        }
         for c in chunks
     ]
 
-    if OPENAI_API_KEY:
-        embeddings = OpenAIEmbeddings()
-    else:
-        embeddings = FakeEmbeddings(size=32)
+    class SimpleRetriever:
+        def get_relevant_documents(self, query: str):
+            """Return chunks whose text contains any of the keywords."""
+            if not query:
+                return []
 
-    # Try PGVector if requested
-    if USE_PG_VECTOR and SUPABASE_URL:
-        # Expect SUPABASE_URL like: postgresql://user:pass@host:5432/db
-        # PGVector expects SQLAlchemy-style, so prepend '+psycopg2'
-        conn_str = SUPABASE_URL
-        if "://" in conn_str and "+psycopg2" not in conn_str:
-            conn_str = conn_str.replace("://", "+psycopg2://", 1)
+            keywords = query.lower().split()
 
-        collection_name = "ocr_icd_chunks"
+            results = []
+            for entry in entries:
+                text = entry["text"].lower()
+                if any(k in text for k in keywords):
+                    results.append(
+                        {
+                            "page_content": entry["text"],
+                            "metadata": entry["metadata"],
+                        }
+                    )
+            return results
 
-        try:
-            store = PGVector.from_documents(
-                embedding=embeddings,
-                documents=docs,
-                collection_name=collection_name,
-                connection_string=conn_str,
-            )
-            return store.as_retriever()
-        except Exception as e:
-            # If pgvector not set up, fall back to FAISS
-            print("PGVector setup failed, falling back to FAISS:", e)
+        # ⭐⭐⭐ This FIX makes LangChain compatible
+        def invoke(self, query: str):
+            return self.get_relevant_documents(query)
 
-    # Default: FAISS in-memory vector store
-    store = FAISS.from_documents(docs, embeddings)
-    return store.as_retriever()
+    return SimpleRetriever()

@@ -1,4 +1,3 @@
-
 import base64
 import uuid
 from io import BytesIO
@@ -41,18 +40,17 @@ DOC_STORE: Dict[str, Dict[str, Any]] = {}
 
 @app.post("/upload", response_model=UploadOut)
 async def upload(file: UploadFile = File(...)):
-    """Upload an image, run OCR, store chunks + page size + preview image.
-
-    NOTE:
-    - For PDFs, preview is just the first page rendered (Pillow may not support PDFs
-      out of the box, focus on images like PNG/JPG).
+    """
+    Upload an image or PDF → run OCR → return preview image + chunks + bounding boxes.
     """
     content = await file.read()
     doc_id = str(uuid.uuid4())
     doc_name = file.filename or "document"
 
+    # OCR
     chunks, page_width, page_height = run_ocr(doc_id, doc_name, content)
 
+    # PREVIEW image generation
     image_data_url = _make_preview_image_data_url(content, page_width, page_height)
 
     DOC_STORE[doc_id] = {
@@ -66,24 +64,42 @@ async def upload(file: UploadFile = File(...)):
     return UploadOut(status="ok", doc_id=doc_id)
 
 
-def _make_preview_image_data_url(content: bytes, default_w: int, default_h: int) -> str:
-    """Convert uploaded image bytes to base64 data URL for display.
+# --------------------------------------------------------------------
+# FIXED PREVIEW IMAGE FUNCTION (handles PDF or Images)
+# --------------------------------------------------------------------
+from PIL import Image as PILImage
 
-    If Pillow cannot open the file, create a blank white image.
+def _make_preview_image_data_url(content: bytes, page_width: float, page_height: float) -> str:
     """
-    if Image is not None:
-        try:
-            img = Image.open(BytesIO(content)).convert("RGB")
-        except Exception:
-            from PIL import Image as PILImage
-            img = PILImage.new("RGB", (default_w, default_h), color="white")
-    else:
-        return ""
+    Creates a preview image:
+    - If it's an image: load directly
+    - If it's a PDF: create a blank white canvas sized based on page inches
+    """
 
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    encoded = base64.b64encode(buffered.getvalue()).decode("ascii")
-    return f"data:image/png;base64,{encoded}"
+    try:
+        # Try treating the input as an image
+        img = PILImage.open(BytesIO(content)).convert("RGB")
+
+    except Exception:
+        # PDF fallback
+        print("⚠️ Uploaded file is not an image. Creating blank preview canvas instead.")
+
+        # Convert PDF size from inches → pixels
+        # Azure often returns page dimensions in inches
+        w_px = int(float(page_width) * 96)
+        h_px = int(float(page_height) * 96)
+
+        # Minimum for preview
+        w_px = max(w_px, 800)
+        h_px = max(h_px, 1100)
+
+        img = PILImage.new("RGB", (w_px, h_px), color="white")
+
+    # Convert to Base64
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("utf-8")
+    return f"data:image/png;base64,{b64}"
 
 
 @app.post("/extract-icd", response_model=ExtractResponse)
